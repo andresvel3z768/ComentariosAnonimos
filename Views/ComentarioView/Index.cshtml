@@ -1,0 +1,527 @@
+﻿@inject Microsoft.Extensions.Configuration.IConfiguration Config
+@{
+    ViewData["Title"] = "Susurros";
+    var tenorApiKey = Config["Tenor:ApiKey"] ?? "";
+}
+
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Playfair+Display:wght@400;600&display=swap" rel="stylesheet">
+
+<div class="page">
+    <header class="hero">
+        <div class="hero-inner">
+            <h1 class="title">Susurros</h1>
+            <p class="subtitle">Un lugar para decir lo que piensas sin filtros ni identidad</p>
+            <p class="subtitle">Tu voz, libre</p>
+        </div>
+    </header>
+
+    <main class="container">
+        <div id="identidadBadge" class="identidad-badge"></div>
+
+        <button id="toggleFormBtn" class="btn toggle-form-btn">Añadir comentario</button>
+
+        <section id="formPanel" class="panel form-panel hidden">
+            <label for="textoComentario" class="label">Escribe tu comentario</label>
+            <textarea id="textoComentario" rows="4" placeholder="Comparte algo..." class="textarea"></textarea>
+
+            <div id="mediaPreview" class="media-preview hidden">
+                <img id="mediaPreviewImg" src="" alt="Preview">
+                <button id="quitarMediaBtn" class="btn-quitar-media">&times;</button>
+            </div>
+
+            <div class="media-actions">
+                <button id="subirImagenBtn" class="btn btn-media">Subir imagen</button>
+                <input type="file" id="fileInput" accept="image/*" class="hidden-input">
+                <button id="gifBtn" class="btn btn-media">GIF</button>
+            </div>
+
+            <div id="gifPicker" class="gif-picker hidden">
+                <div class="gif-search-row">
+                    <input type="text" id="gifSearchInput" placeholder="Buscar GIFs..." class="gif-search-input">
+                    <button id="gifSearchBtn" class="btn btn-sm">Buscar</button>
+                </div>
+                <div id="gifResults" class="gif-results"></div>
+            </div>
+
+            <div class="actions">
+                <button id="enviarBtn" class="btn primary">Enviar comentario</button>
+                <span id="mensaje" class="msg success"></span>
+                <span id="error" class="msg error"></span>
+            </div>
+        </section>
+
+        <section class="panel feed">
+            <h2 class="feed-title">Comentarios</h2>
+            <div id="contenedorComentarios" class="feed-list">
+            </div>
+        </section>
+    </main>
+
+    <footer class="site-footer">Hecho con ❤️ — Interfaz simple y agradable</footer>
+</div>
+
+<style>
+    :root{
+        --bg-primary: #0b0e14;
+        --surface-primary: #1a1d24;
+        --accent-purple: #8b5cf6;
+        --tag-green: #10b981;
+        --tag-orange: #f59e0b;
+        --text-main: #ffffff;
+        --text-muted: #9ca3af;
+        --border-color: #374151;
+    }
+    html,body{height:100%;margin:0;font-family:Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;background:var(--bg-primary);color:var(--text-main)}
+    .page{display:flex;flex-direction:column;min-height:100vh}
+    .hero{background:linear-gradient(90deg,rgba(139,92,246,0.10),rgba(139,92,246,0.04));padding:48px 16px;border-bottom:1px solid var(--border-color)}
+    .hero-inner{max-width:900px;margin:0 auto;text-align:center}
+    .title{font-family:'Playfair Display',serif;font-size:2.1rem;margin:0;color:var(--accent-purple);letter-spacing:0.6px}
+    .subtitle{margin-top:8px;color:var(--text-muted);font-size:0.95rem}
+
+    .container{max-width:900px;margin:28px auto;padding:0 16px;display:flex;flex-direction:column;gap:16px;width:100%}
+    .panel{background:var(--surface-primary);border-radius:12px;padding:18px;box-shadow:0 6px 18px rgba(0,0,0,0.2);}
+
+    .label{display:block;margin-bottom:8px;font-weight:600;color:var(--text-main)}
+    .textarea{width:100%;min-height:100px;border-radius:10px;border:1px solid var(--border-color);padding:12px;font-size:1rem;resize:vertical;background:var(--bg-primary);color:var(--text-main);transition:box-shadow .18s ease,border-color .18s ease;font-family:inherit;box-sizing:border-box}
+    .textarea:focus{outline:none;border-color:var(--accent-purple);box-shadow:0 6px 20px rgba(139,92,246,0.12)}
+
+    .actions{display:flex;align-items:center;gap:12px;margin-top:12px;flex-wrap:wrap}
+    .btn{appearance:none;border:0;padding:10px 16px;border-radius:10px;cursor:pointer;font-weight:600;transition:transform .12s ease,box-shadow .12s ease,background .12s ease;font-size:0.9rem}
+    .btn:active{transform:translateY(1px)}
+    .primary{background:var(--accent-purple);color:#fff;box-shadow:0 8px 20px rgba(139,92,246,0.20)}
+    .primary:hover{transform:translateY(-3px);box-shadow:0 18px 40px rgba(139,92,246,0.25)}
+
+    .msg{font-size:0.95rem}
+    .msg.success{color:var(--tag-green)}
+    .msg.error{color:#ef4444}
+
+    .toggle-form-btn{width:100%;padding:14px;font-size:1rem;border:2px dashed var(--accent-purple);background:rgba(139,92,246,0.04);color:var(--accent-purple);border-radius:12px;transition:all .18s ease}
+    .toggle-form-btn:hover{background:rgba(139,92,246,0.10);border-color:var(--accent-purple);transform:none}
+
+    .form-panel{transition:all .3s ease}
+    .form-panel.hidden{display:none}
+
+    .media-actions{display:flex;gap:8px;margin-top:8px}
+    .btn-media{background:var(--bg-primary);color:var(--text-muted);border:1px solid var(--border-color);padding:8px 14px;border-radius:8px;font-size:0.85rem}
+    .btn-media:hover{background:var(--surface-primary);color:var(--text-main)}
+    .hidden-input{display:none}
+
+    .media-preview{margin-top:8px;padding:8px;background:var(--bg-primary);border:1px solid var(--border-color);border-radius:8px;position:relative;display:inline-block}
+    .media-preview.hidden{display:none}
+    .media-preview img{max-height:120px;max-width:100%;border-radius:6px}
+    .btn-quitar-media{position:absolute;top:-6px;right:-6px;width:22px;height:22px;border-radius:50%;border:0;background:#ef4444;color:#fff;font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1}
+
+    .gif-picker{margin-top:8px;padding:12px;background:var(--bg-primary);border-radius:10px;border:1px solid var(--border-color)}
+    .gif-picker.hidden{display:none}
+    .gif-search-row{display:flex;gap:6px;margin-bottom:8px}
+    .gif-search-input{flex:1;padding:8px;border-radius:8px;border:1px solid var(--border-color);font-size:0.85rem;font-family:inherit;background:var(--surface-primary);color:var(--text-main)}
+    .gif-search-input:focus{outline:none;border-color:var(--accent-purple)}
+    .btn-sm{background:var(--accent-purple);color:#fff;padding:8px 14px;font-size:0.85rem}
+    .gif-results{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;max-height:200px;overflow-y:auto}
+    .gif-result-item{cursor:pointer;border-radius:6px;overflow:hidden;transition:transform .12s ease}
+    .gif-result-item:hover{transform:scale(1.05)}
+    .gif-result-item img{width:100%;height:80px;object-fit:cover;display:block}
+
+    .feed-title{margin:0 0 12px 0;font-size:1.05rem;color:var(--text-main)}
+    .feed-list{display:flex;flex-direction:column;gap:10px}
+
+    .comentario-contenedor{background:var(--surface-primary);padding:14px;border-radius:10px;border:1px solid var(--border-color);box-shadow:0 8px 18px rgba(0,0,0,0.15);}
+    .comentario-contenedor.nested{margin-left:24px;border-left:3px solid var(--accent-purple);border-radius:0 10px 10px 0}
+    .comentario-contenedor.nested-2{margin-left:48px;border-left:3px solid #a78bfa;border-radius:0 10px 10px 0}
+    .comentario-contenedor.nested-3{margin-left:72px;border-left:3px solid #c4b5fd;border-radius:0 10px 10px 0}
+
+    .comentario-header{display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap}
+    .avatar-svg{width:28px;height:28px;border-radius:50%;background:rgba(139,92,246,0.15);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+    .avatar-svg svg{width:16px;height:16px;fill:var(--accent-purple)}
+    .nombre-usuario{font-size:0.82rem;font-weight:600;color:var(--accent-purple);word-break:break-all}
+    .comentario-fecha{font-size:0.78rem;color:var(--text-muted)}
+    .comentario-texto{white-space:pre-wrap;font-size:1rem;color:var(--text-main);margin-top:2px;word-break:break-word}
+    .comentario-media{margin-top:8px}
+    .comentario-media img{max-width:100%;max-height:300px;border-radius:8px;display:block;cursor:pointer;transition:transform .15s ease}
+    .comentario-media img:hover{transform:scale(1.01)}
+
+    .comentario-acciones{margin-top:8px;display:flex;gap:8px}
+    .btn-responder{background:none;border:1px solid var(--border-color);border-radius:8px;padding:4px 12px;font-size:0.82rem;color:var(--text-muted);cursor:pointer;transition:all .12s ease}
+    .btn-responder:hover{background:var(--accent-purple);color:#fff;border-color:var(--accent-purple)}
+
+    .responder-form{margin-top:8px;display:flex;flex-direction:column;gap:6px}
+    .responder-textarea{width:100%;min-height:60px;border-radius:8px;border:1px solid var(--border-color);padding:8px;font-size:0.9rem;resize:vertical;font-family:inherit;box-sizing:border-box;background:var(--bg-primary);color:var(--text-main)}
+    .responder-textarea:focus{outline:none;border-color:var(--accent-purple)}
+    .responder-actions{display:flex;gap:6px}
+    .btn-enviar-respuesta{background:var(--accent-purple);color:#fff;border:0;border-radius:8px;padding:6px 14px;font-size:0.82rem;cursor:pointer;font-weight:600}
+    .btn-cancelar-respuesta{background:none;border:1px solid var(--border-color);border-radius:8px;padding:6px 14px;font-size:0.82rem;cursor:pointer;color:var(--text-muted)}
+
+    .identidad-badge{margin-bottom:0;padding:8px 12px;background:var(--surface-primary);border:1px solid var(--border-color);border-radius:8px;font-size:0.8rem;color:var(--text-muted);display:flex;align-items:center;gap:8px}
+    .identidad-badge .badge-nombre{font-weight:600;color:var(--accent-purple)}
+    .identidad-badge .badge-icon{width:18px;height:18px;border-radius:50%;background:var(--accent-purple);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+    .identidad-badge .badge-icon svg{width:11px;height:11px;fill:#fff}
+
+    .comentario-contenedor.es-propio{background:linear-gradient(180deg,rgba(139,92,246,0.08),var(--surface-primary));border-color:rgba(139,92,246,0.25)}
+
+    .fade-in{animation:fadeInUp .38s cubic-bezier(.2,.9,.2,1)}
+    @@keyframes fadeInUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+    .site-footer{text-align:center;padding:20px 0;color:var(--text-muted);font-size:0.9rem}
+
+    @@media (max-width:680px){
+        .hero{padding:32px 12px}
+        .title{font-size:1.6rem}
+        .comentario-contenedor.nested{margin-left:16px}
+        .comentario-contenedor.nested-2{margin-left:32px}
+        .comentario-contenedor.nested-3{margin-left:48px}
+        .toggle-form-btn{padding:12px;font-size:0.95rem}
+        .gif-results{grid-template-columns:repeat(2,1fr)}
+    }
+</style>
+
+<script>
+    const textoEl = document.getElementById('textoComentario');
+    const enviarBtn = document.getElementById('enviarBtn');
+    const mensajeEl = document.getElementById('mensaje');
+    const errorEl = document.getElementById('error');
+    const listaEl = document.getElementById('contenedorComentarios');
+    const identidadBadge = document.getElementById('identidadBadge');
+    const toggleBtn = document.getElementById('toggleFormBtn');
+    const formPanel = document.getElementById('formPanel');
+    const subirImagenBtn = document.getElementById('subirImagenBtn');
+    const fileInput = document.getElementById('fileInput');
+    const mediaPreview = document.getElementById('mediaPreview');
+    const mediaPreviewImg = document.getElementById('mediaPreviewImg');
+    const quitarMediaBtn = document.getElementById('quitarMediaBtn');
+    const gifBtn = document.getElementById('gifBtn');
+    const gifPicker = document.getElementById('gifPicker');
+    const gifSearchInput = document.getElementById('gifSearchInput');
+    const gifSearchBtn = document.getElementById('gifSearchBtn');
+    const gifResults = document.getElementById('gifResults');
+
+    let miNombreUsuario = null;
+    let mediaUrlActual = null;
+
+    const avatarSvg = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 12c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm0 2c-3.33 0-10 1.67-10 5v2h20v-2c0-3.33-6.67-5-10-5z"/></svg>`;
+    const badgeIconSvg = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 12c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm0 2c-3.33 0-10 1.67-10 5v2h20v-2c0-3.33-6.67-5-10-5z"/></svg>`;
+
+    function escapeHtml(text) {
+        const d = document.createElement('div');
+        d.textContent = text;
+        return d.innerHTML;
+    }
+
+    function toggleForm(mostrar) {
+        if (mostrar === undefined) {
+            formPanel.classList.toggle('hidden');
+        } else if (mostrar) {
+            formPanel.classList.remove('hidden');
+        } else {
+            formPanel.classList.add('hidden');
+        }
+        toggleBtn.textContent = formPanel.classList.contains('hidden')
+            ? 'Añadir comentario'
+            : 'Cerrar formulario';
+        if (!formPanel.classList.contains('hidden')) {
+            textoEl.focus();
+        }
+    }
+
+    // Subir imagen
+    subirImagenBtn.addEventListener('click', () => fileInput.click());
+
+    fileInput.addEventListener('change', async () => {
+        const file = fileInput.files[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            const resp = await fetch('/Comentario/upload', { method: 'POST', body: formData });
+            if (resp.ok) {
+                const data = await resp.json();
+                mediaUrlActual = data.url;
+                mediaPreviewImg.src = data.url;
+                mediaPreview.classList.remove('hidden');
+                gifPicker.classList.add('hidden');
+            } else {
+                errorEl.textContent = 'Error al subir la imagen.';
+            }
+        } catch {
+            errorEl.textContent = 'Error de red al subir.';
+        }
+        fileInput.value = '';
+    });
+
+    quitarMediaBtn.addEventListener('click', () => {
+        mediaUrlActual = null;
+        mediaPreview.classList.add('hidden');
+        mediaPreviewImg.src = '';
+    });
+
+    // GIF picker con Tenor API
+    const TENOR_API_KEY = '@tenorApiKey';
+    const TENOR_CLIENT_KEY = 'susurros_app';
+
+    gifBtn.addEventListener('click', () => {
+        gifPicker.classList.toggle('hidden');
+        if (!gifPicker.classList.contains('hidden')) {
+            gifSearchInput.focus();
+            if (!gifResults.children.length) buscarGifs('reaction');
+        }
+    });
+
+    async function buscarGifs(query) {
+        if (!query.trim()) return;
+        gifResults.innerHTML = '<span style="grid-column:1/-1;color:var(--muted);font-size:0.85rem;padding:8px">Buscando...</span>';
+        try {
+            const url = `https://tenor.googleapis.com/v2/search?q=${encodeURIComponent(query)}&key=${TENOR_API_KEY}&client_key=${TENOR_CLIENT_KEY}&limit=15&media_filter=tinygif`;
+            const resp = await fetch(url);
+            if (!resp.ok) throw new Error('Error Tenor');
+            const data = await resp.json();
+            gifResults.innerHTML = '';
+            if (!data.results?.length) {
+                gifResults.innerHTML = '<span style="grid-column:1/-1;color:var(--muted);font-size:0.85rem;padding:8px">Sin resultados.</span>';
+                return;
+            }
+            data.results.forEach(r => {
+                const gifUrl = r.media_formats?.tinygif?.url;
+                if (!gifUrl) return;
+                const item = document.createElement('div');
+                item.className = 'gif-result-item';
+                item.innerHTML = `<img src="${gifUrl}" alt="GIF" loading="lazy">`;
+                item.addEventListener('click', () => seleccionarGif(gifUrl));
+                gifResults.appendChild(item);
+            });
+        } catch {
+            gifResults.innerHTML = '<span style="grid-column:1/-1;color:#e11d48;font-size:0.85rem;padding:8px">Error al buscar GIFs.</span>';
+        }
+    }
+
+    function seleccionarGif(url) {
+        mediaUrlActual = url;
+        mediaPreviewImg.src = url;
+        mediaPreview.classList.remove('hidden');
+        gifPicker.classList.add('hidden');
+    }
+
+    gifSearchBtn.addEventListener('click', () => buscarGifs(gifSearchInput.value));
+    gifSearchInput.addEventListener('keydown', e => { if (e.key === 'Enter') buscarGifs(gifSearchInput.value); });
+
+    function crearComentarioDOM(comentario, nivel = 0) {
+        const texto = comentario.texto ?? '';
+        const nombre = comentario.nombreUsuario ?? 'Anonimo';
+        const fechaRaw = comentario.fecha;
+        const id = comentario.id;
+        const mediaUrl = comentario.mediaUrl;
+        const fecha = fechaRaw ? new Date(fechaRaw).toLocaleString() : '';
+
+        const cont = document.createElement('div');
+        const nivelClass = nivel === 0 ? '' : nivel === 1 ? 'nested' : nivel === 2 ? 'nested-2' : 'nested-3';
+        cont.className = `comentario-contenedor fade-in ${nivelClass}`;
+        cont.dataset.id = id;
+
+        if (miNombreUsuario && nombre === miNombreUsuario) {
+            cont.classList.add('es-propio');
+        }
+
+        const header = document.createElement('div');
+        header.className = 'comentario-header';
+
+        const avatar = document.createElement('div');
+        avatar.className = 'avatar-svg';
+        avatar.innerHTML = avatarSvg;
+
+        const nombreEl = document.createElement('span');
+        nombreEl.className = 'nombre-usuario';
+        nombreEl.textContent = nombre;
+
+        const fechaEl = document.createElement('span');
+        fechaEl.className = 'comentario-fecha';
+        fechaEl.textContent = fecha;
+
+        header.appendChild(avatar);
+        header.appendChild(nombreEl);
+        header.appendChild(fechaEl);
+
+        cont.appendChild(header);
+
+        if (texto) {
+            const pTexto = document.createElement('div');
+            pTexto.className = 'comentario-texto';
+            pTexto.textContent = texto;
+            cont.appendChild(pTexto);
+        }
+
+        if (mediaUrl) {
+            const mediaDiv = document.createElement('div');
+            mediaDiv.className = 'comentario-media';
+            const img = document.createElement('img');
+            img.src = mediaUrl;
+            img.loading = 'lazy';
+            img.addEventListener('click', () => window.open(mediaUrl, '_blank'));
+            mediaDiv.appendChild(img);
+            cont.appendChild(mediaDiv);
+        }
+
+        const acciones = document.createElement('div');
+        acciones.className = 'comentario-acciones';
+
+        const btnResponder = document.createElement('button');
+        btnResponder.className = 'btn-responder';
+        btnResponder.textContent = 'Responder';
+        btnResponder.addEventListener('click', () => mostrarFormularioRespuesta(cont, id));
+
+        acciones.appendChild(btnResponder);
+        cont.appendChild(acciones);
+
+        return cont;
+    }
+
+    function mostrarFormularioRespuesta(contenedor, parentId) {
+        const existente = contenedor.querySelector('.responder-form');
+        if (existente) { existente.remove(); return; }
+
+        const form = document.createElement('div');
+        form.className = 'responder-form fade-in';
+
+        const textarea = document.createElement('textarea');
+        textarea.className = 'responder-textarea';
+        textarea.placeholder = 'Escribe tu respuesta...';
+        textarea.rows = 2;
+
+        const actions = document.createElement('div');
+        actions.className = 'responder-actions';
+
+        const btnEnviar = document.createElement('button');
+        btnEnviar.className = 'btn-enviar-respuesta';
+        btnEnviar.textContent = 'Enviar';
+        btnEnviar.addEventListener('click', async () => {
+            const txt = textarea.value.trim();
+            if (!txt) return;
+            btnEnviar.disabled = true;
+            try {
+                const resp = await fetch('/Comentario', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ texto: txt, parentId: parentId })
+                });
+                if (resp.status === 201) {
+                    const creado = await resp.json();
+                    const hijo = crearComentarioDOM(creado, 1);
+                    contenedor.parentNode.insertBefore(hijo, contenedor.nextSibling);
+                    form.remove();
+                }
+            } catch { }
+            btnEnviar.disabled = false;
+        });
+
+        const btnCancelar = document.createElement('button');
+        btnCancelar.className = 'btn-cancelar-respuesta';
+        btnCancelar.textContent = 'Cancelar';
+        btnCancelar.addEventListener('click', () => form.remove());
+
+        actions.appendChild(btnEnviar);
+        actions.appendChild(btnCancelar);
+        form.appendChild(textarea);
+        form.appendChild(actions);
+
+        contenedor.appendChild(form);
+        textarea.focus();
+    }
+
+    function buildTree(comentarios) {
+        const hijos = {};
+        const raices = [];
+
+        comentarios.forEach(c => {
+            const pid = c.parentId;
+            if (pid == null) {
+                raices.push(c);
+            } else {
+                if (!hijos[pid]) hijos[pid] = [];
+                hijos[pid].push(c);
+            }
+        });
+
+        function renderArbol(lista, nivel = 0) {
+            const fragment = document.createDocumentFragment();
+            lista.forEach(c => {
+                const el = crearComentarioDOM(c, Math.min(nivel, 3));
+                fragment.appendChild(el);
+                const id = c.id;
+                if (hijos[id]) {
+                    fragment.appendChild(renderArbol(hijos[id], nivel + 1));
+                }
+            });
+            return fragment;
+        }
+
+        return renderArbol(raices);
+    }
+
+    async function cargarIdentidad() {
+        try {
+            const r = await fetch('/Comentario/mi-usuario');
+            if (r.ok) {
+                const data = await r.json();
+                miNombreUsuario = data.nombreUsuario;
+                identidadBadge.innerHTML = `
+                    <span class="badge-icon">${badgeIconSvg}</span>
+                    <span>Comentando como: <span class="badge-nombre">${escapeHtml(miNombreUsuario)}</span></span>
+                `;
+            }
+        } catch (e) { console.warn('No se pudo cargar la identidad', e) }
+    }
+
+    async function cargarComentarios() {
+        try {
+            const r = await fetch('/Comentario/list');
+            if (r.ok) {
+                const arr = await r.json();
+                listaEl.appendChild(buildTree(arr));
+            }
+        } catch (e) { console.warn('No se pudieron cargar los comentarios', e) }
+    }
+
+    toggleBtn.addEventListener('click', () => toggleForm());
+
+    enviarBtn.addEventListener('click', async () => {
+        mensajeEl.textContent = '';
+        errorEl.textContent = '';
+
+        const texto = textoEl.value.trim();
+        if (!texto && !mediaUrlActual) { errorEl.textContent = 'Escribe algo o adjunta una imagen.'; return; }
+
+        try {
+            const body = { texto };
+            if (mediaUrlActual) body.mediaUrl = mediaUrlActual;
+
+            const resp = await fetch('/Comentario', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+
+            if (resp.status === 201) {
+                const creado = await resp.json();
+                mensajeEl.textContent = 'Comentario enviado.';
+                textoEl.value = '';
+                mediaUrlActual = null;
+                mediaPreview.classList.add('hidden');
+                mediaPreviewImg.src = '';
+                const el = crearComentarioDOM(creado);
+                listaEl.prepend(el);
+                enviarBtn.blur();
+                toggleForm(false);
+            } else {
+                let detalle = await resp.text();
+                try { detalle = JSON.parse(detalle).message ?? detalle; } catch { }
+                errorEl.textContent = 'Error: ' + detalle;
+            }
+        } catch (ex) {
+            errorEl.textContent = 'Error de red o servidor.';
+        }
+    });
+
+    window.addEventListener('load', async () => {
+        await cargarIdentidad();
+        cargarComentarios();
+    });
+</script>
